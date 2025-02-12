@@ -6,4 +6,4 @@ WORKDIR /app
 COPY build/libs/*.jar app.jar
 
 # 3. 컨테이너가 실행될 때 JAR 실행
-CMD ["java", "-jar", "app.jar"]
+CMD ["java", "-jar", "-Dspring.profiles.active=dev", "app.jar"]
