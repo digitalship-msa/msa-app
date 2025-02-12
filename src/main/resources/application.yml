@@ -1,0 +1,16 @@
+values:
+  kafka:
+    ip: 192.168.10.201
+    port: 9092
+
+#
+
+server:
+  port: 8091
+spring:
+  kafka:
+    bootstrap-servers: ${values.kafka.ip}:${values.kafka.port}
+    consumer:
+      key-deserializer: #todo
+      value-deserializer: #todo
+      group-id: #todo
