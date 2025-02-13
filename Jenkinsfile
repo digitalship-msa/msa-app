@@ -13,6 +13,7 @@ pipeline {
             steps {
                  sh 'echo pull request =======================  '
                  sh 'echo jenkins test add  '
+                 sh 'echo jenkins test add  2'
                  sh "echo pull request ID ======================= ${env.CHNAGE_ID}"
             }
         }
