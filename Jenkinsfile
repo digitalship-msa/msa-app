@@ -50,7 +50,7 @@ pipeline {
                 sh "docker rm ${CONTAINER_NAME} || true"
 
                 // 새로운 컨테이너 실행
-                sh "docker run -d -p 9090:8091 --name ${CONTAINER_NAME} ${IMAGE_NAME} "
+                sh "docker run -d -p 8091:8091 --name ${CONTAINER_NAME} ${IMAGE_NAME} "
             }
         }
     }
