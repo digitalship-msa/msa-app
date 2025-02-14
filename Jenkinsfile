@@ -8,13 +8,21 @@ pipeline {
     stages {
         stage('pull request'){
             when {
-                expression { env.CHNAGE_ID != null }
+                expression { env.CHANGE_ID != null }
             }
             steps {
-                 sh 'echo pull request =======================  '
-                 sh 'echo jenkins test add  '
-                 sh 'echo jenkins test add  2'
-                 sh "echo pull request ID ======================= ${env.CHNAGE_ID}"
+                 echo 'pull request =======================  '
+                 echo 'jenkins test add  '
+                 echo 'jenkins test add  2'
+                 echo "pull request ID ======================= ${env.CHANGE_ID}"
+            }
+        }
+        stage('No changes detected') {
+            when {
+                expression { env.CHANGE_ID == null }
+            }
+            steps {
+                echo "No changes detected, skipping pull request stage."
             }
         }
         stage('GitHub Repository Clone') {
@@ -39,7 +47,7 @@ pipeline {
         stage('Build docker image') {
             steps {
                 script {
-                  sh 'docker build -t ${IMAGE_NAME} .'
+                  sh 'docker build --cache-from ${IMAGE_NAME} -t ${IMAGE_NAME} .'
                 }
             }
         }
@@ -52,6 +60,19 @@ pipeline {
                 // 새로운 컨테이너 실행
                 sh "docker run -d -p 9090:8091 --name ${CONTAINER_NAME} ${IMAGE_NAME} "
             }
+        }
+        stage('Clean-Up') {
+            steps {
+                sh 'docker image prune -f'
+            }
+        }
+    }
+    post {
+        success {
+            echo '배포 성공'
+        }
+        failure {
+            echo '배포 실패'
         }
     }
 }
