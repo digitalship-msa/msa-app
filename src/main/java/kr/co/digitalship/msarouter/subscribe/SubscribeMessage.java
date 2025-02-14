@@ -16,6 +16,7 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 import java.net.URISyntaxException;
+import java.util.Arrays;
 
 @Component
 @RequiredArgsConstructor
@@ -38,7 +39,7 @@ public class SubscribeMessage {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
-        log.saveLog("Event received! : " + val);
+        log.saveLog("Event received! : " + Arrays.toString(val));
         DomainProperties.Backup backup = domain.getBackup();
         int retryCnt = backup.getRetryCount();
         log.saveLog("Request to Backup server! - start");
