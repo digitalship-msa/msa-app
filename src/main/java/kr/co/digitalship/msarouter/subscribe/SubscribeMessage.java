@@ -13,10 +13,12 @@ import org.apache.kafka.common.TopicPartition;
 import org.springframework.http.HttpMethod;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.stereotype.Component;
 
 import java.net.URISyntaxException;
+import java.util.Arrays;
 
-//@Component
+@Component
 @RequiredArgsConstructor
 public class SubscribeMessage {
 
@@ -29,34 +31,41 @@ public class SubscribeMessage {
 
     private final ObjectMapper om;
 
-    @KafkaListener(topics = {"tp"}, groupId = "gr")
+    @KafkaListener(topics = {"ukha"})
     public void sub(ConsumerRecord<String, String> msg, Acknowledgment ack, Consumer<?, ?> consumer) {
-        String key = msg.key();
-        String val = msg.value();
-        log.saveLog("Event received! : " + val);
+        String[] val;
+        try {
+            val = om.readValue(msg.value(), String[].class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        log.saveLog("Event received! : " + Arrays.toString(val));
         DomainProperties.Backup backup = domain.getBackup();
         int retryCnt = backup.getRetryCount();
         log.saveLog("Request to Backup server! - start");
-        for (int i = 1; i <= retryCnt; i++) {
-            try {
-                SimpleApiResponseData response = facade.send(
-                        backup.getDomain(),
-                        backup.getPort(),
-                        backup.getEndpoint(),
-                        HttpMethod.valueOf(backup.getMethod()),
-                        om.readValue(msg.value(), BackupData.class));
-                log.saveLog("Request to Backup server! - done, response: \n" + response.body() + "\n");
-                ack.acknowledge();
-            } catch (URISyntaxException e) {
-                if (i < retryCnt) log.saveLog("ERROR! === again ===\nRequest to Backup server! - restart");
-                else {
-                    log.saveLog("ERROR! fail backup.. add to queue this Task...");
-                    TopicPartition tp = new TopicPartition(msg.topic(), msg.partition());
-                    consumer.seek(tp, msg.offset());
+        for (String v : val) {
+            for (int i = 1; i <= retryCnt; i++) {
+                try {
+                    SimpleApiResponseData response = facade.send(
+                            backup.getDomain(),
+                            backup.getPort(),
+                            backup.getEndpoint(),
+                            HttpMethod.valueOf(backup.getMethod()),
+                            om.readValue(v, BackupData.class));
+                    log.saveLog("Request to Backup server! - done, response: \n" + response.body() + "\n");
+                    ack.acknowledge();
+                    break;
+                } catch (URISyntaxException e) {
+                    if (i < retryCnt) log.saveLog("ERROR! === again ===\nRequest to Backup server! - restart");
+                    else {
+                        log.saveLog("ERROR! fail backup.. add to queue this Task...");
+                        TopicPartition tp = new TopicPartition(msg.topic(), msg.partition());
+                        consumer.seek(tp, msg.offset());
+                        throw new RuntimeException(e);
+                    }
+                } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
             }
         }
     }

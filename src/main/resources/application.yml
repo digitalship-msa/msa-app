@@ -7,14 +7,14 @@ values:
 
 server:
   port: 8091
+
 spring:
   kafka:
     bootstrap-servers: ${values.kafka.ip}:${values.kafka.port}
     consumer:
       enable-auto-commit: false
-      key-deserializer: #todo
-      value-deserializer: #todo
-      group-id: #todo
+      key-deserializer: org.apache.kafka.common.serialization.StringSerializer
+      value-deserializer: org.apache.kafka.common.serialization.StringSerializer
 
 msa:
   data:
