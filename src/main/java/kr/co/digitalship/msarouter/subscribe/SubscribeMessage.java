@@ -1,13 +1,19 @@
 package kr.co.digitalship.msarouter.subscribe;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.co.digitalship.msarouter.log.LogApplication;
+import kr.co.digitalship.msarouter.properties.DomainProperties;
 import kr.co.digitalship.msarouter.subscribe.model.BackupData;
 import kr.co.digitalship.msarouter.subscribe.model.SimpleApiResponseData;
 import lombok.RequiredArgsConstructor;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.TopicPartition;
 import org.springframework.http.HttpMethod;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.stereotype.Component;
+import org.springframework.kafka.support.Acknowledgment;
 
 import java.net.URISyntaxException;
 
@@ -15,34 +21,44 @@ import java.net.URISyntaxException;
 @RequiredArgsConstructor
 public class SubscribeMessage {
 
-    private final SubscribeMessageFacade facade;
+    private final RequestFacade facade;
 
     // Log Monitor
     private final LogApplication log;
 
-    // Discovery
-    private final String URI = "";
-    // Discovery
-    private final int PORT = 0;
-    // Discovery
-    private final HttpMethod method = HttpMethod.POST;
+    private final DomainProperties domain;
 
-    @KafkaListener(topics = {"tp"})
-    public void sub(ConsumerRecord<String, String> msg) {
+    private final ObjectMapper om;
+
+    @KafkaListener(topics = {"tp"}, groupId = "gr")
+    public void sub(ConsumerRecord<String, String> msg, Acknowledgment ack, Consumer<?, ?> consumer) {
         String key = msg.key();
         String val = msg.value();
         log.saveLog("Event received! : " + val);
-
-        try {
-            /* TODO 2025-02-10 월 16:50
-                Backup Data 데이터 변경
-                --by Hyunmin
-            */
-            log.saveLog("Request to Backup server! - start");
-            SimpleApiResponseData response = facade.send(URI, PORT, method, new BackupData(key, val));
-            log.saveLog("Request to Backup server! - done, response: \n" + response.body() + "\n");
-        } catch (URISyntaxException e) {
-            throw new RuntimeException(e);
+        DomainProperties.Backup backup = domain.getBackup();
+        int retryCnt = backup.getRetryCount();
+        log.saveLog("Request to Backup server! - start");
+        for (int i = 1; i <= retryCnt; i++) {
+            try {
+                SimpleApiResponseData response = facade.send(
+                        backup.getDomain(),
+                        backup.getPort(),
+                        backup.getEndpoint(),
+                        HttpMethod.valueOf(backup.getMethod()),
+                        om.readValue(msg.value(), BackupData.class));
+                log.saveLog("Request to Backup server! - done, response: \n" + response.body() + "\n");
+                ack.acknowledge();
+            } catch (URISyntaxException e) {
+                if (i < retryCnt) log.saveLog("ERROR! === again ===\nRequest to Backup server! - restart");
+                else {
+                    log.saveLog("ERROR! fail backup.. add to queue this Task...");
+                    TopicPartition tp = new TopicPartition(msg.topic(), msg.partition());
+                    consumer.seek(tp, msg.offset());
+                    throw new RuntimeException(e);
+                }
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

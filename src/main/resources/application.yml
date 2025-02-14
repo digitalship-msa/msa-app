@@ -11,6 +11,21 @@ spring:
   kafka:
     bootstrap-servers: ${values.kafka.ip}:${values.kafka.port}
     consumer:
+      enable-auto-commit: false
       key-deserializer: #todo
       value-deserializer: #todo
       group-id: #todo
+
+msa:
+  data:
+    save:
+      domain: http://192.168.10.201
+      port: 8888
+      method:  POST
+      endpoint: /api/board/save
+    backup:
+      domain: http://192.168.10.201
+      port: 8085
+      method: POST
+      endpoint: /backup
+      retry-count: 5

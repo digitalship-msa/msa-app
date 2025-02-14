@@ -16,22 +16,23 @@ import java.net.http.HttpResponse;
 
 @Component
 @RequiredArgsConstructor
-public class DefaultSubscribeMessageFacade implements SubscribeMessageFacade {
+public class DefaultRequestFacade implements RequestFacade {
 
     private final ObjectMapper om;
 
     // API 보내기
-    public <T> SimpleApiResponseData send(String ip, int port, HttpMethod method, T message) throws URISyntaxException {
+    public <T> SimpleApiResponseData send(String ip, int port, String endpoint, HttpMethod method, T message) throws URISyntaxException {
         HttpClient client = HttpClient.newHttpClient();
 
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                .uri(new URI(ip + (port > 0 ? (":" + port) : "")));
+                .uri(new URI(ip + (port > 0 ? (":" + port) : "") + (endpoint != null ? endpoint : "")));
 
         if (method == HttpMethod.GET) {
             requestBuilder.GET();
-        } else if (message == HttpMethod.POST) {
+        } else if (method == HttpMethod.POST) {
             try {
                 requestBuilder.POST(HttpRequest.BodyPublishers.ofString(om.writeValueAsString(message)));
+                requestBuilder.header("Content-Type", "application/json");
             } catch (JsonProcessingException e) {
                 throw new RuntimeException(e);
             }
@@ -53,16 +54,16 @@ public class DefaultSubscribeMessageFacade implements SubscribeMessageFacade {
         return new SimpleApiResponseData(code, responseBody);
     }
 
-    public <T> SimpleApiResponseData send(String ip, int port, T message) throws URISyntaxException {
-        return send(ip, port, message == null ? HttpMethod.GET : HttpMethod.POST, message);
+    public <T> SimpleApiResponseData send(String ip, int port, String endpoint, T message) throws URISyntaxException {
+        return send(ip, port, endpoint, message == null ? HttpMethod.GET : HttpMethod.POST, message);
     }
 
-    public <T, R> R send(String ip, int port, T message, Class<R> responseType) throws URISyntaxException {
-        return send(ip, port, message == null ? HttpMethod.GET : HttpMethod.POST, message, responseType);
+    public <T, R> R send(String ip, int port, String endpoint, T message, Class<R> responseType) throws URISyntaxException {
+        return send(ip, port, endpoint, message == null ? HttpMethod.GET : HttpMethod.POST, message, responseType);
     }
 
-    public <T, R> R send(String ip, int port, HttpMethod method, T message, Class<R> responseType) throws URISyntaxException {
-        SimpleApiResponseData response = send(ip, port, method, message);
+    public <T, R> R send(String ip, int port, String endpoint, HttpMethod method, T message, Class<R> responseType) throws URISyntaxException {
+        SimpleApiResponseData response = send(ip, port, endpoint, method, message);
         try {
             return om.readValue(response.body(), responseType);
         } catch (JsonProcessingException e) {
